@@ -93,6 +93,7 @@ read_verilog                      $path_rtl/lock/muxer_reg4.v
 read_verilog                      $path_rtl/lock/muxer_reg5.v
 #read_verilog                      $path_rtl/lock/gen_mod.v
 read_verilog                      $path_rtl/lock/gen_mod_h.v
+read_verilog                      $path_rtl/lock/gen_mod_h_dds.v
 read_verilog                      $path_rtl/lock/gen_ramp.v
 read_verilog                      $path_rtl/lock/gen_ramp_relock.v
 read_verilog                      $path_rtl/lock/lock_ctrl.v

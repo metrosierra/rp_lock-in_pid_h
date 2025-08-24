@@ -22,3 +22,8 @@ v0.3.8
 
 v0.3.9
 - ADDED support for ecosystem 2.0 of RedPitaya
+
+v0.3.10
+- Swapped out modulation generator logic with direct digital synthesis (DDS) using 4096-point LUT
+- Modulation generator now spans 0-125MHz in 2^14 steps, DDS allows high fidelity up to <10MHz
+- Increased max low-pass filter frequency to about 19MHz, in 22 freq. doubling steps starting from 9Hz

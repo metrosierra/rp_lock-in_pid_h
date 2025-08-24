@@ -68,6 +68,11 @@
   var time_range_max = [130, 1000, 8, 16,  33,  67, 130,  1,  8, 64 ];
   var range_steps = [0.5, 1, 2, 5, 10, 20, 50, 100];
 
+  const PERIOD_LEN = 4096 ; // lookup table length for DDS
+  const DDS_ACCUM_MSB = 14 ; // accumulator truncated bit depth for DDS
+  const DDS_ACCUM_WIDTH = 32 ;
+  const F_CLK_HZ = 125000000 ; // 125 MHz clock frequency
+  const ACCU_WIDTH_POW2 = Math.pow(2, DDS_ACCUM_MSB); // 2^14 for the truncated accumulator
 
 
   function secondYaxis(v, axis) {
@@ -1626,7 +1631,7 @@
         $('#tab_'+tab_name+'_body').show();
 
     });
-
+ 
     $('#btn_set_trig').prop('disabled', false);
     // $('#btn_disp_sq').data('checked', false);
 
@@ -2046,32 +2051,45 @@
 
     if( lock_gen_mod_phase_arr.length === 2) {
       if ( lock_gen_mod_phase_arr[1].toLowerCase()=="g" || lock_gen_mod_phase_arr[1].toLowerCase()=="deg" || lock_gen_mod_phase_arr[1].toLowerCase()=="°" )
-        mod_phase = Math.round( (mod_phase % 360 ) / 360 * 2520 );
+        mod_phase = Math.floor( (mod_phase % 360 ) / 360 * PERIOD_LEN );
       if ( lock_gen_mod_phase_arr[1].toLowerCase()=="rad" )
-        mod_phase = Math.round( ( mod_phase % (2*Math.PI) ) / (2*Math.PI) * 2520 );
+        mod_phase = Math.floor( ( mod_phase % (2*Math.PI) ) / (2*Math.PI) * PERIOD_LEN );
       if ( lock_gen_mod_phase_arr[1].toLowerCase()=="pi" )
-        mod_phase = Math.round( mod_phase / 2  * 2520 );
-      mod_phase = Math.min(  2520 , mod_phase  ) ;
+        mod_phase = Math.floor( mod_phase / 2  * PERIOD_LEN );
+      mod_phase = Math.min(  PERIOD_LEN , mod_phase  ) ;
       mod_phase = Math.max(     0 , mod_phase  ) ;
       $("#lock_gen_mod_phase").val(""+mod_phase);
     }
 
-    if( lock_gen_mod_hp_arr.length === 2) {
+    if( lock_gen_mod_hp_arr.length === 2) {      
+
+      let period_s = mod_hp;
       if ( lock_gen_mod_hp_arr[1].toLowerCase()=="s" || lock_gen_mod_hp_arr[1].toLowerCase()=="seg" )
-        mod_hp = Math.round( mod_hp / (2520*8e-9) )-1;
+        period_s *= 1;
       if ( lock_gen_mod_hp_arr[1].toLowerCase()=="ms" )
-        mod_hp = Math.round( mod_hp / (2520*8e-9*1000) )-1;
+        period_s *= 1e-3;
       if ( lock_gen_mod_hp_arr[1].toLowerCase()=="us"  || lock_gen_mod_hp_arr[1].toLowerCase()=="μs"   )
-        mod_hp = Math.round( mod_hp / (2520*8e-9*1000*1000) )-1;
-      mod_hp = Math.min(  819100 , mod_hp  ) ;
+        period_s *= 1e-6;
+      if ( lock_gen_mod_hp_arr[1].toLowerCase()=="ns" )
+        period_s *= 1e-9;
+
+      if (period_s > 0){
+        mod_hp = Math.round(ACCU_WIDTH_POW2 / (F_CLK_HZ * period_s));
+      }
+      else {
+        mod_hp = 0;
+      }
+
+       mod_hp = Math.min(  16383 , mod_hp  ) ;
       mod_hp = Math.max(       0 , mod_hp  ) ;
-      $("#lock_gen_mod_hp").val(""+mod_hp);
+      $("#lock_gen_mod_hp").val("" + mod_hp);
     }
 
+    $('#lock_gen_mod_phase_text'   ).html( "<small><b>" + (mod_phase   /PERIOD_LEN*360).toFixed(1) + "&nbsp;deg&nbsp;|&nbsp;" +   (mod_phase   /PERIOD_LEN*2).toFixed(1) + "&nbsp;п&nbsp;rad</b></small>");
 
-    $('#lock_gen_mod_phase_text'   ).html( "<small><b>" + (mod_phase   /2520*360).toFixed(1) + "&nbsp;deg&nbsp;|&nbsp;" +   (mod_phase   /2520*2).toFixed(1) + "&nbsp;п&nbsp;rad</b></small>");
-
-    hp_period=(mod_hp+1)*2520*8e-9;
+    if (mod_hp > 0) {
+      hp_period = ACCU_WIDTH_POW2 / (F_CLK_HZ * mod_hp);
+    }
     if ( hp_period === 0 ){
       txt=" OFF ";
     }else{
@@ -2084,7 +2102,7 @@
       txt += " <br> <b>f&nbsp;=&nbsp;" + val.toFixed(3) + "&nbsp;" + units[oom.toString()] + "Hz</b></small>";
     }
 
-    $('#lock_gen_mod_hp_text').html( txt   );
+    $('#lock_gen_mod_hp_text').html(txt);
 
   }
 
@@ -4756,7 +4774,7 @@
                         <div class="form-group">
                           <label for="lock_gen_mod_phase" class="col-xs-4 control-label">Phase:</label>
                           <div class="col-xs-4 col-sm-8">
-                            <input type="number" autocomplete="off" class="form-control" value="0" id="lock_gen_mod_phase" step="1" min="0" max="2519">
+                            <input type="number" autocomplete="off" class="form-control" value="0" id="lock_gen_mod_phase" step="3" min="0" max="2519">
                             <span style="display: none;" class="input-group-btn" id="lock_gen_mod_phase_apply">
                               <button type="button" class="btn btn-primary btn-lg"><span class="glyphicon glyphicon-ok-circle"></span></button>
                             </span>
@@ -4792,23 +4810,29 @@
                         <div class="form-group">
                           <div class="col-xs-8"> cut
                             <select id="lock_lpf_F0_tau" class="form-control">
-                              <option  value="0" selected="selected"> 131 us |  1.2 kHz</option>
-                              <option  value="1"> 262 us | 607.1  Hz</option>
-                              <option  value="2"> 524 us | 303.6  Hz</option>
-                              <option  value="3">   1 ms | 151.8  Hz</option>
-                              <option  value="4">   2 ms | 75.9  Hz</option>
-                              <option  value="5">   4 ms | 37.9  Hz</option>
-                              <option  value="6">   8 ms | 19.0  Hz</option>
-                              <option  value="7">  17 ms |  9.5  Hz</option>
-                              <option  value="8">  34 ms |  4.7  Hz</option>
-                              <option  value="9">  67 ms |  2.4  Hz</option>
-                              <option  value="10"> 134 ms |  1.2  Hz</option>
-                              <option  value="11"> 268 ms | 592.9 mHz</option>
-                              <option  value="12"> 537 ms | 296.4 mHz</option>
-                              <option  value="13">   1  s | 148.2 mHz</option>
-                              <option  value="14">   2  s | 74.1 mHz</option>
-                              <option  value="15">   4  s | 37.1 mHz</option>
-                            </select>
+                              <option value="0">   8.00 ns | 19.89 MHz</option>
+                              <option value="1">  16.00 ns |  9.95 MHz</option>
+                              <option value="2">  32.00 ns |  4.97 MHz</option>
+                              <option value="3">  64.00 ns |  2.49 MHz</option>
+                              <option value="4"> 128.00 ns |  1.24 MHz</option>
+                              <option value="5"> 256.00 ns | 621.70 kHz</option>
+                              <option value="6"> 512.00 ns | 310.85 kHz</option>
+                              <option value="7">   1.02 us | 155.42 kHz</option>
+                              <option value="8">   2.05 us |  77.71 kHz</option>
+                              <option value="9">   4.10 us |  38.86 kHz</option>
+                              <option value="10">  8.19 us |  19.43 kHz</option>
+                              <option value="11"> 16.38 us |   9.71 kHz</option>
+                              <option value="12"> 32.77 us |   4.86 kHz</option>
+                              <option value="13"> 65.54 us |   2.43 kHz</option>
+                              <option value="14" selected="selected">131.07 us |   1.21 kHz</option>
+                              <option value="15">262.14 us |  607.13 Hz</option>
+                              <option value="16">524.29 us |  303.56 Hz</option>
+                              <option value="17">  1.05 ms |  151.78 Hz</option>
+                              <option value="18">  2.10 ms |   75.89 Hz</option>
+                              <option value="19">  4.19 ms |   37.95 Hz</option>
+                              <option value="20">  8.39 ms |   18.97 Hz</option>
+                              <option value="21"> 16.78 ms |    9.49 Hz</option>
+                          </select>
                           </div>
                           <div class="col-xs-4"> order
                             <select id="lock_lpf_F0_order" class="form-control">
@@ -4863,22 +4887,28 @@
                         <div class="form-group">
                           <div class="col-xs-8"> cut
                             <select id="lock_lpf_F1_tau" class="form-control">
-                              <option  value="0" selected="selected"> 131 us |  1.2 kHz</option>
-                              <option  value="1"> 262 us | 607.1  Hz</option>
-                              <option  value="2"> 524 us | 303.6  Hz</option>
-                              <option  value="3">   1 ms | 151.8  Hz</option>
-                              <option  value="4">   2 ms | 75.9  Hz</option>
-                              <option  value="5">   4 ms | 37.9  Hz</option>
-                              <option  value="6">   8 ms | 19.0  Hz</option>
-                              <option  value="7">  17 ms |  9.5  Hz</option>
-                              <option  value="8">  34 ms |  4.7  Hz</option>
-                              <option  value="9">  67 ms |  2.4  Hz</option>
-                              <option  value="10"> 134 ms |  1.2  Hz</option>
-                              <option  value="11"> 268 ms | 592.9 mHz</option>
-                              <option  value="12"> 537 ms | 296.4 mHz</option>
-                              <option  value="13">   1  s | 148.2 mHz</option>
-                              <option  value="14">   2  s | 74.1 mHz</option>
-                              <option  value="15">   4  s | 37.1 mHz</option>
+                              <option value="0">   8.00 ns | 19.89 MHz</option>
+                              <option value="1">  16.00 ns |  9.95 MHz</option>
+                              <option value="2">  32.00 ns |  4.97 MHz</option>
+                              <option value="3">  64.00 ns |  2.49 MHz</option>
+                              <option value="4"> 128.00 ns |  1.24 MHz</option>
+                              <option value="5"> 256.00 ns | 621.70 kHz</option>
+                              <option value="6"> 512.00 ns | 310.85 kHz</option>
+                              <option value="7">   1.02 us | 155.42 kHz</option>
+                              <option value="8">   2.05 us |  77.71 kHz</option>
+                              <option value="9">   4.10 us |  38.86 kHz</option>
+                              <option value="10">  8.19 us |  19.43 kHz</option>
+                              <option value="11"> 16.38 us |   9.71 kHz</option>
+                              <option value="12"> 32.77 us |   4.86 kHz</option>
+                              <option value="13"> 65.54 us |   2.43 kHz</option>
+                              <option value="14" selected="selected">131.07 us |   1.21 kHz</option>
+                              <option value="15">262.14 us |  607.13 Hz</option>
+                              <option value="16">524.29 us |  303.56 Hz</option>
+                              <option value="17">  1.05 ms |  151.78 Hz</option>
+                              <option value="18">  2.10 ms |   75.89 Hz</option>
+                              <option value="19">  4.19 ms |   37.95 Hz</option>
+                              <option value="20">  8.39 ms |   18.97 Hz</option>
+                              <option value="21"> 16.78 ms |    9.49 Hz</option>
                             </select>
                           </div>
                           <div class="col-xs-4"> order
@@ -4924,22 +4954,28 @@
                         <div class="form-group">
                           <div class="col-xs-8"> cut
                             <select id="lock_lpf_F2_tau" class="form-control">
-                              <option  value="0" selected="selected"> 131 us |  1.2 kHz</option>
-                              <option  value="1"> 262 us | 607.1  Hz</option>
-                              <option  value="2"> 524 us | 303.6  Hz</option>
-                              <option  value="3">   1 ms | 151.8  Hz</option>
-                              <option  value="4">   2 ms | 75.9  Hz</option>
-                              <option  value="5">   4 ms | 37.9  Hz</option>
-                              <option  value="6">   8 ms | 19.0  Hz</option>
-                              <option  value="7">  17 ms |  9.5  Hz</option>
-                              <option  value="8">  34 ms |  4.7  Hz</option>
-                              <option  value="9">  67 ms |  2.4  Hz</option>
-                              <option  value="10"> 134 ms |  1.2  Hz</option>
-                              <option  value="11"> 268 ms | 592.9 mHz</option>
-                              <option  value="12"> 537 ms | 296.4 mHz</option>
-                              <option  value="13">   1  s | 148.2 mHz</option>
-                              <option  value="14">   2  s | 74.1 mHz</option>
-                              <option  value="15">   4  s | 37.1 mHz</option>
+                              <option value="0">   8.00 ns | 19.89 MHz</option>
+                              <option value="1">  16.00 ns |  9.95 MHz</option>
+                              <option value="2">  32.00 ns |  4.97 MHz</option>
+                              <option value="3">  64.00 ns |  2.49 MHz</option>
+                              <option value="4"> 128.00 ns |  1.24 MHz</option>
+                              <option value="5"> 256.00 ns | 621.70 kHz</option>
+                              <option value="6"> 512.00 ns | 310.85 kHz</option>
+                              <option value="7">   1.02 us | 155.42 kHz</option>
+                              <option value="8">   2.05 us |  77.71 kHz</option>
+                              <option value="9">   4.10 us |  38.86 kHz</option>
+                              <option value="10">  8.19 us |  19.43 kHz</option>
+                              <option value="11"> 16.38 us |   9.71 kHz</option>
+                              <option value="12"> 32.77 us |   4.86 kHz</option>
+                              <option value="13"> 65.54 us |   2.43 kHz</option>
+                              <option value="14" selected="selected">131.07 us |   1.21 kHz</option>
+                              <option value="15">262.14 us |  607.13 Hz</option>
+                              <option value="16">524.29 us |  303.56 Hz</option>
+                              <option value="17">  1.05 ms |  151.78 Hz</option>
+                              <option value="18">  2.10 ms |   75.89 Hz</option>
+                              <option value="19">  4.19 ms |   37.95 Hz</option>
+                              <option value="20">  8.39 ms |   18.97 Hz</option>
+                              <option value="21"> 16.78 ms |    9.49 Hz</option>
                             </select>
                           </div>
                           <div class="col-xs-4"> order
@@ -4984,22 +5020,28 @@
                         <div class="form-group">
                           <div class="col-xs-8"> cut
                             <select id="lock_lpf_F3_tau" class="form-control">
-                              <option  value="0" selected="selected"> 131 us |  1.2 kHz</option>
-                              <option  value="1"> 262 us | 607.1  Hz</option>
-                              <option  value="2"> 524 us | 303.6  Hz</option>
-                              <option  value="3">   1 ms | 151.8  Hz</option>
-                              <option  value="4">   2 ms | 75.9  Hz</option>
-                              <option  value="5">   4 ms | 37.9  Hz</option>
-                              <option  value="6">   8 ms | 19.0  Hz</option>
-                              <option  value="7">  17 ms |  9.5  Hz</option>
-                              <option  value="8">  34 ms |  4.7  Hz</option>
-                              <option  value="9">  67 ms |  2.4  Hz</option>
-                              <option  value="10"> 134 ms |  1.2  Hz</option>
-                              <option  value="11"> 268 ms | 592.9 mHz</option>
-                              <option  value="12"> 537 ms | 296.4 mHz</option>
-                              <option  value="13">   1  s | 148.2 mHz</option>
-                              <option  value="14">   2  s | 74.1 mHz</option>
-                              <option  value="15">   4  s | 37.1 mHz</option>
+                              <option value="0">   8.00 ns | 19.89 MHz</option>
+                              <option value="1">  16.00 ns |  9.95 MHz</option>
+                              <option value="2">  32.00 ns |  4.97 MHz</option>
+                              <option value="3">  64.00 ns |  2.49 MHz</option>
+                              <option value="4"> 128.00 ns |  1.24 MHz</option>
+                              <option value="5"> 256.00 ns | 621.70 kHz</option>
+                              <option value="6"> 512.00 ns | 310.85 kHz</option>
+                              <option value="7">   1.02 us | 155.42 kHz</option>
+                              <option value="8">   2.05 us |  77.71 kHz</option>
+                              <option value="9">   4.10 us |  38.86 kHz</option>
+                              <option value="10">  8.19 us |  19.43 kHz</option>
+                              <option value="11"> 16.38 us |   9.71 kHz</option>
+                              <option value="12"> 32.77 us |   4.86 kHz</option>
+                              <option value="13"> 65.54 us |   2.43 kHz</option>
+                              <option value="14" selected="selected">131.07 us |   1.21 kHz</option>
+                              <option value="15">262.14 us |  607.13 Hz</option>
+                              <option value="16">524.29 us |  303.56 Hz</option>
+                              <option value="17">  1.05 ms |  151.78 Hz</option>
+                              <option value="18">  2.10 ms |   75.89 Hz</option>
+                              <option value="19">  4.19 ms |   37.95 Hz</option>
+                              <option value="20">  8.39 ms |   18.97 Hz</option>
+                              <option value="21"> 16.78 ms |    9.49 Hz</option>
                             </select>
                           </div>
                           <div class="col-xs-4"> order
