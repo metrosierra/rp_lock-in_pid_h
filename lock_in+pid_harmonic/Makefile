@@ -24,9 +24,9 @@ CFLAGS += -DVERSION=$(VER)-$(BUILD_NUMBER) -DREVISION=$(REVISION)
 export CFLAGS
 
 
-.PHONY: clean clean_fpga clean_app clean_target
+.PHONY: clean clean_fpga clean_app clean_target fpga install_script
 
-all: $(CONTROLLERHF) fpga
+all: $(CONTROLLERHF) fpga install_script
 
 $(CONTROLLERHF):
 	$(MAKE) -C src clean
@@ -60,6 +60,9 @@ red_pitaya.bit:
 fpga.bit:
 	cp fpga/out/red_pitaya.bit ./fpga.bit
 
+install_script:
+	chmod +x fpga.sh
+
 fpga.bit.bin:
 	@( \
 		source /tools/Xilinx/Vivado/2020.1/settings64.sh ;\
@@ -74,6 +77,7 @@ target/$(APP): red_pitaya.bit $(CONTROLLERHF) index.html
 	cp -r $(CONTROLLERHF) c nginx.conf fpga.conf info css js py red_pitaya.bit index.html target/$(APP)
 	rm target/$(APP)/info/icon_*.png
 	cp -r upload_app.sh target/
+	cp fpga.sh target/$(APP)/
 	cp -r ../resources target/
 	cp ../CHANGELOG.md ../README.md target/
 	mkdir -p target/$(APP)/py
@@ -117,7 +121,7 @@ upload_bit:
 
 upload: target/$(APP)
 	ssh $(RPIP) $(RPOPTS) "PATH_REDPITAYA=/opt/redpitaya /boot/sbin/rw ; rm -rf /opt/redpitaya/www/apps/$(APP) ; mkdir -p /opt/redpitaya/www/apps/$(APP)"
-	cd target/$(APP) ; scp  $(RPSCP) -r controllerhf.so css js py c nginx.conf fpga.conf index.html info red_pitaya.bit  root@$(RPIP):/opt/redpitaya/www/apps/$(APP)/
+	cd target/$(APP) ; scp  $(RPSCP) -r controllerhf.so fpga.sh css js py c nginx.conf fpga.conf index.html info red_pitaya.bit  root@$(RPIP):/opt/redpitaya/www/apps/$(APP)/
 
 upload_html: target/$(APP) target_dbg/$(APP)_DEBUG target_rld/$(APP)_RELOAD
 	ssh $(RPIP) $(RPOPTS) "PATH_REDPITAYA=/opt/redpitaya /boot/sbin/rw ; rm -rf /opt/redpitaya/www/apps/$(APP)/{index.html,js,css}"
