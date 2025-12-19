@@ -634,13 +634,18 @@ lock i_lock (
 //  Sending 125MHz adc_clk out of SATA connector Lane 0
 
 // Lane 0: Output the Clock
-OBUFDS daisy_clk_buf (
+OBUFDS daisy_clk_buf_lane0 (
     .I  (adc_clk),       // Input: The internal 125MHz ADC clock
     .O  (daisy_p_o[0]),  // Output Positive: SATA Pin
     .OB (daisy_n_o[0])   // Output Negative: SATA Pin
 );
-
-assign daisy_p_o = 1'bz;
-assign daisy_n_o = 1'bz;
+// Lane 1: Output the Clock
+OBUFDS daisy_clk_buf_lane1 (
+    .I  (adc_clk),       // Input: The internal 125MHz ADC clock
+    .O  (daisy_p_o[1]),  // Output Positive: SATA Pin
+    .OB (daisy_n_o[1])   // Output Negative: SATA Pin
+);
+//assign daisy_p_o = 1'bz;
+//assign daisy_n_o = 1'bz;
 
 endmodule
