@@ -2048,6 +2048,10 @@
 
     mod_phase    = Math.abs( parseLocalFloat( lock_gen_mod_phase_arr[0] ) );
     mod_hp       = Math.abs( parseLocalFloat( lock_gen_mod_hp_arr[0]   ) );
+    var hp_period = 0;
+    var txt = "";
+    var oom = 0;
+    var val = 0;
 
     if( lock_gen_mod_phase_arr.length === 2) {
       if ( lock_gen_mod_phase_arr[1].toLowerCase()=="g" || lock_gen_mod_phase_arr[1].toLowerCase()=="deg" || lock_gen_mod_phase_arr[1].toLowerCase()=="°" )

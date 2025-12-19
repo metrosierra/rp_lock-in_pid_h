@@ -630,8 +630,15 @@ lock i_lock (
 
 
 //---------------------------------------------------------------------------------
-//  Daisy chain
-//  simple communication module
+//  Daisy chain - CLOCK OUTPUT MODIFICATION
+//  Sending 125MHz adc_clk out of SATA connector Lane 0
+
+// Lane 0: Output the Clock
+OBUFDS daisy_clk_buf (
+    .I  (adc_clk),       // Input: The internal 125MHz ADC clock
+    .O  (daisy_p_o[0]),  // Output Positive: SATA Pin
+    .OB (daisy_n_o[0])   // Output Negative: SATA Pin
+);
 
 assign daisy_p_o = 1'bz;
 assign daisy_n_o = 1'bz;
