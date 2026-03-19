@@ -70,7 +70,7 @@ int rp_read_calib_params(rp_calib_params_t *calib_params)
     if(size != sizeof(rp_calib_params_t)) {
         fclose(fp);
         fprintf(stderr, "rp_read_calib_params(): fread() failed, "
-                "returned bytes: %d (should be :%d)\n", size, 
+                "returned bytes: %zu (should be :%zu)\n", size, 
                 sizeof(rp_calib_params_t));
         return -1;
     }

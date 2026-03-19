@@ -170,8 +170,11 @@ set_property PACKAGE_PIN M15 [get_ports {exp_n_io[7]}]
 #set_property PULLUP   TRUE [get_ports {exp_n_io[7]}]
 
 ### SATA connector
-set_property IOSTANDARD LVCMOS18 [get_ports {daisy_p_o[*]}]
-set_property IOSTANDARD LVCMOS18 [get_ports {daisy_n_o[*]}]
+# OUTPUTS: Differential 
+set_property IOSTANDARD DIFF_HSTL_I_18 [get_ports {daisy_p_o[*]}]
+set_property IOSTANDARD DIFF_HSTL_I_18 [get_ports {daisy_n_o[*]}]
+
+# INPUTS: Single-Ended 
 set_property IOSTANDARD LVCMOS18 [get_ports {daisy_p_i[*]}]
 set_property IOSTANDARD LVCMOS18 [get_ports {daisy_n_i[*]}]
 
